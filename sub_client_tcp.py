@@ -1,7 +1,7 @@
 import socket
 import sys
 
-HOST = "192.168.65.127"
+HOST = "192.168.65.246"
 PORT = 15000
 
 

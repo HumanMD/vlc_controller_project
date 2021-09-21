@@ -1,20 +1,35 @@
 import socket
 # import subprocess
 import sys
+from threading import Thread
+import queue
+import time
 
-HOST = "192.168.65.127"
+HOST = ""
 PORT = 15000
+q = queue.Queue(maxsize=3)
 
 
-def receive_commands(conn):
+def receive_commands(queue, conn):
     while True:
         data = conn.recv(4096)
+
         if str(data, "utf-8") == "esc":
             print("i am closing server connection ... ")
             conn.close()
             sys.exit()
-        print(str(data, "utf-8"))
         conn.sendall(data)
+
+        queue.put(data, True)
+        print(f"producer thread, insert: {str(data,'utf-8')}\n")
+
+
+def consumer(queue):
+    while True:
+        time.sleep(5)
+        item = queue.get(True)
+        print(f"consumer thread, consuming: {item}\n")
+        queue.task_done()
 
 
 def sub_server(address,
@@ -29,7 +44,10 @@ def sub_server(address,
         sys.exit()
     conn, client_address = s.accept()
     print(f"connection Server - Client established: {client_address} ")
-    receive_commands(conn)
+
+    threads = [Thread(target=receive_commands, args=(q, conn,)), Thread(target=consumer, args=(q,))]
+    for thread in threads:
+        thread.start()
 
 
 if __name__ == "__main__":
