@@ -14,22 +14,21 @@ def receive_commands(queue, conn):
     while True:
         data = conn.recv(4096)
 
-        if str(data, "utf-8") == "esc":
-            print("i am closing server connection ... ")
-            conn.close()
-            sys.exit()
+        # if str(data, "utf-8") == "esc":
+        #     print("i am closing server connection ... ")
+        #     conn.close()
+        #     sys.exit()
         conn.sendall(data)
 
         queue.put(data, True)
-        print(f"producer thread, insert: {str(data,'utf-8')}\n")
+        print(f"producer thread, insert: {str(data, 'utf-8')}\n")
 
 
 def consumer(queue):
     while True:
-        time.sleep(5)
-        item = queue.get(True)
-        print(f"consumer thread, consuming: {item}\n")
-        queue.task_done()
+        time.sleep(2)
+        data = queue.get(True)
+        print(f"consumer thread, consuming: {str(data, 'utf-8')}\n")
 
 
 def sub_server(address,
