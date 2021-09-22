@@ -1,27 +1,14 @@
 import socket
 import sys
-import re
 
-HOST = "192.168.65.167"
+HOST = "192.168.198.131"
 PORT = 15000
 
 
 def send_commands(s):
     while True:
         command = input("<start|stop>,<video-lan-number> -> ")
-
-        if not re.findall("^(start|stop+)(,)([1-4])$", command):
-            print('illegal action!')
-            continue
-
         s.sendall(command.encode())
-
-        # if command == "esc":
-        #     print("i am closing server connection ... ")
-        #     s.close()
-        #     sys.exit()
-        data = s.recv(4096)
-        print(str(data, "utf-8"))
 
 
 def conn_sub_server(server_address):

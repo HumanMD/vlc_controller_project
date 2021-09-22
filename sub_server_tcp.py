@@ -4,6 +4,7 @@ import sys
 from threading import Thread
 import queue
 import time
+import re
 
 HOST = ""
 PORT = 15000
@@ -13,22 +14,21 @@ q = queue.Queue(maxsize=3)
 def receive_commands(queue, conn):
     while True:
         data = conn.recv(4096)
+        msg = str(data, 'utf-8')
 
-        # if str(data, "utf-8") == "esc":
-        #     print("i am closing server connection ... ")
-        #     conn.close()
-        #     sys.exit()
-        conn.sendall(data)
+        if not re.findall("^(start|stop+)(,)([1-4])$", msg):
+            print('illegal action!')
+            continue
 
-        queue.put(data, True)
-        print(f"producer thread, insert: {str(data, 'utf-8')}\n")
+        queue.put(msg, True)
+        print(f"producer thread, insert: {msg}")
 
 
 def consumer(queue):
     while True:
         time.sleep(2)
-        data = queue.get(True)
-        print(f"consumer thread, consuming: {str(data, 'utf-8')}\n")
+        msg = queue.get(True)
+        print(f"consumer thread, consuming: {msg}")
 
 
 def sub_server(address,
