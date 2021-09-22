@@ -15,7 +15,7 @@ def conn_sub_server(server_address):
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # creation of client socket
         s.connect(server_address)  # connection to the server
-        print(f"connected to the server at {server_address}\nto close the connection type esc")
+        print(f"connected to the server at {server_address}")
     except socket.error as error:
         print(f"something wrong...\n {error}")
         sys.exit()
