@@ -14,3 +14,15 @@
 # 5 - Ricezione Richiesta dal Client                                                # recv()
 # 4 - Elaborazione di una Risposta                                                  # subprocess()
 # 5 - Invio Risposta al Client                                                      # send()
+
+def classic_check(message):
+    messages = message.split(',')
+    actions = ['start', 'stop']
+    parameters = ['1', '2', '3', '4']
+
+    if (len(messages) == 2) \
+            and \
+            (any(x == messages[0] for x in actions)) \
+            and \
+            (any(x == messages[1] for x in parameters)):
+        return True
