@@ -6,6 +6,7 @@ import threading
 import time
 import subprocess
 import os
+import vlc
 
 HOST = ""
 PORT = 15000
@@ -17,10 +18,11 @@ current_state = [
     dict(vl=3, action=initial_action),
 ]
 current_msg = dict(vl=0, action=initial_action)
+lock = threading.Lock()
 
 
 def regex_check(message):
-    if re.findall("^(start|stop+)(,)([1-4])$", message):
+    if re.findall("^(start|stop+)(,)([1-3])$", message):
         return True
 
 
@@ -59,11 +61,10 @@ class ConsumerThread(threading.Thread):
         while True:
             time.sleep(1)
             array_msg = self.q_msg.get(True).split(',')
-            new_msg = {
+            current_msg.update({
                 'vl': int(array_msg[1]),
                 'action': array_msg[0]
-            }
-            current_msg.update(new_msg)
+            })
             print(f"consumer thread, consuming: {current_msg} ")
 
 
@@ -77,30 +78,36 @@ class VideoLanThread(threading.Thread):
         global current_state
         global current_msg
         while True:
-            time.sleep(2)
             vl = current_msg['vl']
 
             if vl != 0:
                 state = current_state[vl - 1]
 
-                if state['action'] != current_msg['action']:
-                    path = 'video' + str(vl) + ".mp4"
-                    state.update(current_msg)
-                    current_msg.update({
-                        'vl': 0,
-                        'action': ''
-                    })
+                state.update(current_msg)
+                current_msg.update({
+                    'vl': 0,
+                    'action': ''
+                })
 
-                    # TODO see the vlan commands, xdoTool and xwininfo
-                    if state['action'] == 'start':
-                        print(f"thread {self.name}: {state}")
-                        os.chdir("/home/human/Videos")
-                        # subprocess.run(['vlc', path])
-                        subprocess.run(['vlc', path, 'vlc://quit'])
-                    else:
-                        print(f"thread {self.name}: {state}")
-                        os.chdir("/home/human/Videos")
-                        print("quit the video")
+                path = 'video' + str(vl) + ".mp4"
+                os.chdir("/home/human/Videos")
+                # TODO create a a MediaPlayer instance for each vlan
+                #  in currentState to access the instance from different threads
+                player = vlc.MediaPlayer(path)
+
+                # TODO see the vlan commands, xdoTool and xwininfo
+                if state['action'] == 'start':
+                    print(f"thread {self.name}: {state}")
+                    player.play()
+                    # TODO fix bug!! vlc doesn't set the parameters -> maybe i can use python-vlc
+                    # subprocess.run(
+                    #     ['vlc', path])
+
+                else:
+                    print(f"thread {self.name}: {state}")
+                    player.stop()
+                    os.chdir("/home/human/Videos")
+                    print("quit the video")
 
 
 def sub_server(address, backlog=1):
