@@ -10,19 +10,20 @@ import vlc
 
 HOST = ""
 PORT = 15000
-q = queue.Queue(maxsize=3)
-initial_action = ''
-current_state = [
-    dict(vl=1, action=initial_action),
-    dict(vl=2, action=initial_action),
-    dict(vl=3, action=initial_action),
-]
-current_msg = dict(vl=0, action=initial_action)
+q = queue.Queue(maxsize=4)
 lock = threading.Lock()
+initial = ''
+current_state = [
+    dict(vl_number=1, vl_instance=initial, action=initial),
+    dict(vl_number=2, vl_instance=initial, action=initial),
+    dict(vl_number=3, vl_instance=initial, action=initial),
+    dict(vl_number=4, vl_instance=initial, action=initial),
+]
+current_msg = dict(vl=0, action=initial)
 
 
 def regex_check(message):
-    if re.findall("^(start|stop+)(,)([1-3])$", message):
+    if re.findall("^(start|stop+)(,)([1-4])$", message):
         return True
 
 
@@ -47,7 +48,7 @@ class ProducerThread(threading.Thread):
                 continue
 
             self.q_msg.put(msg, True)
-            print(f"producer thread, insert: {msg}")
+            print(f"producer thread, insert: {msg}... ")
 
 
 class ConsumerThread(threading.Thread):
@@ -65,7 +66,7 @@ class ConsumerThread(threading.Thread):
                 'vl': int(array_msg[1]),
                 'action': array_msg[0]
             })
-            print(f"consumer thread, consuming: {current_msg} ")
+            print(f"consumer thread, consuming: {current_msg}... ")
 
 
 class VideoLanThread(threading.Thread):
@@ -75,39 +76,43 @@ class VideoLanThread(threading.Thread):
         self.name = name
 
     def run(self):
+        global lock
         global current_state
         global current_msg
         while True:
+            lock.acquire()
             vl = current_msg['vl']
 
-            if vl != 0:
+            if vl != 0:  # action != ''
                 state = current_state[vl - 1]
+                new_action = current_msg['action']
+                current_action = state['action']
+                current_vl_instance = state['vl_instance']
 
-                state.update(current_msg)
+                if new_action == 'start':
+                    print(f"{self.name}: {new_action} vl {vl}")
+                    os.chdir("/home/human/Videos")
+
+                    if current_vl_instance == '':
+                        new_vl_instance = vlc.MediaPlayer("video" + str(vl) + ".mp4")
+                        state.update({'action': new_action, 'vl_instance': new_vl_instance})
+                        new_vl_instance.play()
+                    else:
+                        # TODO if the video ended replay it!!
+                        state.update({'action': new_action})
+                        current_vl_instance.play()
+
+                elif new_action == 'stop' and new_action != current_action:
+                    print(f"{self.name}: {new_action} vl {vl}")
+                    current_vl_instance.stop()
+                    state.update({'action': new_action, 'vl_instance': current_vl_instance})
+
                 current_msg.update({
                     'vl': 0,
                     'action': ''
                 })
 
-                path = 'video' + str(vl) + ".mp4"
-                os.chdir("/home/human/Videos")
-                # TODO create a a MediaPlayer instance for each vlan
-                #  in currentState to access the instance from different threads
-                player = vlc.MediaPlayer(path)
-
-                # TODO see the vlan commands, xdoTool and xwininfo
-                if state['action'] == 'start':
-                    print(f"thread {self.name}: {state}")
-                    player.play()
-                    # TODO fix bug!! vlc doesn't set the parameters -> maybe i can use python-vlc
-                    # subprocess.run(
-                    #     ['vlc', path])
-
-                else:
-                    print(f"thread {self.name}: {state}")
-                    player.stop()
-                    os.chdir("/home/human/Videos")
-                    print("quit the video")
+            lock.release()
 
 
 def sub_server(address, backlog=1):
@@ -123,8 +128,8 @@ def sub_server(address, backlog=1):
     print(f"connection Server - Client established: {client_address} ")
 
     threads = [ProducerThread(q, conn), ConsumerThread(q),
-               VideoLanThread('vlan1'), VideoLanThread('vlan2'),
-               VideoLanThread('vlan3'), VideoLanThread('vlan4')]
+               VideoLanThread('thread_1'), VideoLanThread('thread_2'),
+               VideoLanThread('thread_3'), VideoLanThread('thread_4')]
     for thread in threads:
         thread.start()
 
