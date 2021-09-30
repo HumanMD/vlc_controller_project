@@ -4,7 +4,6 @@ import socket
 import sys
 import threading
 import time
-import subprocess
 import os
 import vlc
 
@@ -91,21 +90,22 @@ class VideoLanThread(threading.Thread):
 
                 if new_action == 'start':
                     print(f"{self.name}: {new_action} vl {vl}")
-                    os.chdir("/home/human/Videos")
+                    os.chdir("/home/human/Video")
 
                     if current_vl_instance == '':
                         new_vl_instance = vlc.MediaPlayer("video" + str(vl) + ".mp4")
                         state.update({'action': new_action, 'vl_instance': new_vl_instance})
                         new_vl_instance.play()
                     else:
-                        # TODO if the video ended replay it!!
-                        state.update({'action': new_action})
+                        current_vl_instance.stop()
+                        time.sleep(1)
                         current_vl_instance.play()
 
-                elif new_action == 'stop' and new_action != current_action:
+                elif new_action == 'stop' and \
+                        new_action != current_action and \
+                        current_vl_instance != '':
                     print(f"{self.name}: {new_action} vl {vl}")
                     current_vl_instance.stop()
-                    state.update({'action': new_action, 'vl_instance': current_vl_instance})
 
                 current_msg.update({
                     'vl': 0,
