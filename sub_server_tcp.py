@@ -8,48 +8,23 @@ import time
 import tkinter as tk
 import vlc
 
+from Producer import ProducerThread
+from Window import Window
+
 HOST = ""
 PORT = 15000
 q = queue.Queue(maxsize=4)
 lock = threading.Lock()
 initial = ''
+root = tk.Tk()
 
 current_state = [
-    dict(vl_number=1, vl_instance=initial, isRunning=False, action=initial),
-    dict(vl_number=2, vl_instance=initial, isRunning=False, action=initial),
-    dict(vl_number=3, vl_instance=initial, isRunning=False, action=initial),
-    dict(vl_number=4, vl_instance=initial, isRunning=False, action=initial),
+    dict(vl_number=1, vl_instance=initial, action=initial),
+    dict(vl_number=2, vl_instance=initial, action=initial),
+    dict(vl_number=3, vl_instance=initial, action=initial),
+    dict(vl_number=3, vl_instance=initial, action=initial)
 ]
 current_msg = dict(vl=0, action=initial)
-
-
-def regex_check(message):
-    if re.findall("^(start|stop+)(,)([1-4])$", message):
-        return True
-
-
-class ProducerThread(threading.Thread):
-    def __init__(self, q_msg, conn):
-        threading.Thread.__init__(self)
-        self.q_msg = q_msg
-        self.conn = conn
-
-    def run(self):
-
-        while True:
-            data = self.conn.recv(4096)
-            msg = str(data, 'utf-8')
-
-            if msg == 'esc':
-                print('closing connection')
-                sys.exit()
-
-            if not regex_check(msg):
-                print('illegal input!')
-                continue
-
-            self.q_msg.put(msg, True)
-            print(f"producer thread, insert: {msg}... ")
 
 
 class ConsumerThread(threading.Thread):
@@ -61,7 +36,7 @@ class ConsumerThread(threading.Thread):
         global current_msg
 
         while True:
-            time.sleep(1)
+            time.sleep(0.5)
             array_msg = self.q_msg.get(True).split(',')
             current_msg.update({
                 'vl': int(array_msg[1]),
@@ -93,27 +68,21 @@ class VideoLanThread(threading.Thread):
                 if new_action == 'start':
                     print(f"{self.name}: {new_action} vl {vl}")
                     os.chdir("/home/human/Video")
-                    window = tk.Tk()
-                    window.geometry("800x600")
-                    window.title('Video Lan ' + str(vl))
-                    xid = window.winfo_id()
 
                     if current_vl_instance == '':
                         i = vlc.Instance('--no-xlib --quiet')
                         new_vl_instance = i.media_player_new()
                         new_vl_instance.set_mrl("video" + str(vl) + ".mp4")
-                        new_vl_instance.set_xwindow(xid)
+                        new_window = Window(root, vl, 'Video Lan ' + str(vl), new_vl_instance)
                         new_vl_instance.play()
-                        window.mainloop()
+
                         state.update(
-                            {'action': new_action, 'vl_instance': new_vl_instance, 'isRunning': True})
+                            {'action': new_action, 'vl_instance': new_vl_instance})
 
                     else:
                         current_vl_instance.stop()
-                        state.update({'isRunning': False})
                         time.sleep(1)
                         current_vl_instance.play()
-                        state.update({'isRunning': True})
 
                 elif new_action == 'stop' and \
                         new_action != current_action and \
@@ -145,8 +114,12 @@ def sub_server(address, backlog=1):
     threads = [ProducerThread(q, conn), ConsumerThread(q),
                VideoLanThread('thread_1'), VideoLanThread('thread_2'),
                VideoLanThread('thread_3'), VideoLanThread('thread_4')]
+
     for thread in threads:
         thread.start()
+
+    root.withdraw()  # hide the root so that only the video lan will be visible
+    root.mainloop()
 
 
 if __name__ == "__main__":
