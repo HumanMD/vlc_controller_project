@@ -1,10 +1,11 @@
+import os
 import queue
 import re
 import socket
 import sys
 import threading
 import time
-import os
+import tkinter as tk
 import vlc
 
 HOST = ""
@@ -12,11 +13,12 @@ PORT = 15000
 q = queue.Queue(maxsize=4)
 lock = threading.Lock()
 initial = ''
+
 current_state = [
-    dict(vl_number=1, vl_instance=initial, action=initial),
-    dict(vl_number=2, vl_instance=initial, action=initial),
-    dict(vl_number=3, vl_instance=initial, action=initial),
-    dict(vl_number=4, vl_instance=initial, action=initial),
+    dict(vl_number=1, vl_instance=initial, isRunning=False, action=initial),
+    dict(vl_number=2, vl_instance=initial, isRunning=False, action=initial),
+    dict(vl_number=3, vl_instance=initial, isRunning=False, action=initial),
+    dict(vl_number=4, vl_instance=initial, isRunning=False, action=initial),
 ]
 current_msg = dict(vl=0, action=initial)
 
@@ -91,21 +93,34 @@ class VideoLanThread(threading.Thread):
                 if new_action == 'start':
                     print(f"{self.name}: {new_action} vl {vl}")
                     os.chdir("/home/human/Video")
+                    window = tk.Tk()
+                    window.geometry("800x600")
+                    window.title('Video Lan ' + str(vl))
+                    xid = window.winfo_id()
 
                     if current_vl_instance == '':
-                        new_vl_instance = vlc.MediaPlayer("video" + str(vl) + ".mp4")
-                        state.update({'action': new_action, 'vl_instance': new_vl_instance})
+                        i = vlc.Instance('--no-xlib --quiet')
+                        new_vl_instance = i.media_player_new()
+                        new_vl_instance.set_mrl("video" + str(vl) + ".mp4")
+                        new_vl_instance.set_xwindow(xid)
                         new_vl_instance.play()
+                        window.mainloop()
+                        state.update(
+                            {'action': new_action, 'vl_instance': new_vl_instance, 'isRunning': True})
+
                     else:
                         current_vl_instance.stop()
+                        state.update({'isRunning': False})
                         time.sleep(1)
                         current_vl_instance.play()
+                        state.update({'isRunning': True})
 
                 elif new_action == 'stop' and \
                         new_action != current_action and \
                         current_vl_instance != '':
                     print(f"{self.name}: {new_action} vl {vl}")
                     current_vl_instance.stop()
+                    state.update({'isRunning': False})
 
                 current_msg.update({
                     'vl': 0,
