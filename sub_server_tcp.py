@@ -19,12 +19,28 @@ initial = ''
 root = tk.Tk()
 
 current_state = [
-    dict(vl_number=1, vl_instance=initial, action=initial),
-    dict(vl_number=2, vl_instance=initial, action=initial),
-    dict(vl_number=3, vl_instance=initial, action=initial),
-    dict(vl_number=3, vl_instance=initial, action=initial)
-]
-current_msg = dict(vl=0, action=initial)
+    dict(vl_number=1, vl_instance=initial, action=initial,
+         w_h_x_y='400x250+' + str(root.winfo_x()) + '+' + str(root.winfo_y())),
+    dict(vl_number=2, vl_instance=initial, action=initial,
+         w_h_x_y='400x250+' + str(root.winfo_x() + 300) + '+' + str(root.winfo_y() + 200)),
+    dict(vl_number=3, vl_instance=initial, action=initial,
+         w_h_x_y='400x250+' + str(root.winfo_x() + 600) + '+' + str(root.winfo_y() + 400)),
+    dict(vl_number=3, vl_instance=initial, action=initial,
+         w_h_x_y='400x250+' + str(root.winfo_x() + 900) + '+' + str(root.winfo_y() + 600))
+]  # STATE VECTOR TO TAKE TRACK OF CHANGES MADE BY VLC-THREADS
+new_msg = dict(vl=0, action=initial)  # LAST MESSAGE WROTE BY CONSUMER
+
+
+# DEFINE THE VLC INSTANCE, THE WINDOW TO DISPLAY IT, AND UPDATE THE STATE OF THE VIDEO-LAN
+def create_window(vl_number, root_window, state, new_action):
+    i = vlc.Instance('--no-xlib --quiet')
+    new_vl_instance = i.media_player_new()
+    new_vl_instance.set_mrl("video" + str(vl_number) + ".mp4")
+    new_window = Window(root_window, vl_number, 'Video Lan ' + str(vl_number), new_vl_instance, state['w_h_x_y'])
+    new_vl_instance.play()
+
+    state.update(
+        {'action': new_action, 'vl_instance': new_vl_instance, 'window': new_window})
 
 
 class ConsumerThread(threading.Thread):
@@ -33,16 +49,16 @@ class ConsumerThread(threading.Thread):
         self.q_msg = q_msg
 
     def run(self):
-        global current_msg
+        global new_msg
 
         while True:
             time.sleep(0.5)
             array_msg = self.q_msg.get(True).split(',')
-            current_msg.update({
+            new_msg.update({
                 'vl': int(array_msg[1]),
                 'action': array_msg[0]
             })
-            print(f"consumer thread, consuming: {current_msg}... ")
+            print(f"consumer thread, consuming: {new_msg}... ")
 
 
 class VideoLanThread(threading.Thread):
@@ -54,14 +70,14 @@ class VideoLanThread(threading.Thread):
     def run(self):
         global lock
         global current_state
-        global current_msg
+        global new_msg
         while True:
             lock.acquire()
-            vl = current_msg['vl']
+            vl = new_msg['vl']
 
             if vl != 0:  # action != ''
                 state = current_state[vl - 1]
-                new_action = current_msg['action']
+                new_action = new_msg['action']
                 current_action = state['action']
                 current_vl_instance = state['vl_instance']
 
@@ -70,28 +86,22 @@ class VideoLanThread(threading.Thread):
                     os.chdir("/home/human/Video")
 
                     if current_vl_instance == '':
-                        i = vlc.Instance('--no-xlib --quiet')
-                        new_vl_instance = i.media_player_new()
-                        new_vl_instance.set_mrl("video" + str(vl) + ".mp4")
-                        new_window = Window(root, vl, 'Video Lan ' + str(vl), new_vl_instance)
-                        new_vl_instance.play()
-
-                        state.update(
-                            {'action': new_action, 'vl_instance': new_vl_instance})
+                        create_window(vl, root, state, new_action)
 
                     else:
+                        state['window'].destroy()
                         current_vl_instance.stop()
-                        time.sleep(1)
-                        current_vl_instance.play()
+                        time.sleep(0.5)
+                        create_window(vl, root, state, new_action)
 
                 elif new_action == 'stop' and \
                         new_action != current_action and \
                         current_vl_instance != '':
                     print(f"{self.name}: {new_action} vl {vl}")
                     current_vl_instance.stop()
-                    state.update({'isRunning': False})
+                    state['window'].destroy()
 
-                current_msg.update({
+                new_msg.update({
                     'vl': 0,
                     'action': ''
                 })
@@ -118,6 +128,7 @@ def sub_server(address, backlog=1):
     for thread in threads:
         thread.start()
 
+    root.geometry('1920x1016+0+0')
     root.withdraw()  # hide the root so that only the video lan will be visible
     root.mainloop()
 
