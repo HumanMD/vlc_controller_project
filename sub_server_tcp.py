@@ -7,7 +7,7 @@ import threading
 import time
 import tkinter as tk
 import vlc
-
+from screeninfo import get_monitors
 from Producer import ProducerThread
 from Window import Window
 
@@ -16,21 +16,26 @@ PORT = 15000
 q = queue.Queue(maxsize=4)
 lock = threading.Lock()
 initial = ''
+
+# GET PRIMARY MONITOR DIMENSION AND DEFINE THE WINDOWS DIMENSION AND POSITION BASED ON IT
+monitor = get_monitors()[0]
 root = tk.Tk()
-root.geometry('1920x1016')
-root.withdraw()  # hide the root so that only the video lan will be visible
-x = root.winfo_x()
-y = root.winfo_y()
+root.withdraw()  # hide the root so that only the video lan windows will be visible
+w = int(monitor.width / 4)
+h = int(monitor.height / 4)
+ml = int(w - monitor.width / 16)  # base margin left
+mt = int(h - monitor.height / 12)  # base margin top
+dimension = str(w) + 'x' + str(h) + '+'
 
 current_state = [
     dict(vl_number=1, vl_instance=initial, action=initial,
-         w_h_x_y='400x250+' + str(x) + '+' + str(y)),
+         w_h_x_y=dimension + str(monitor.x) + '+' + str(monitor.y)),
     dict(vl_number=2, vl_instance=initial, action=initial,
-         w_h_x_y='400x250+' + str(x + 300) + '+' + str(y + 200)),
+         w_h_x_y=dimension + str(ml) + '+' + str(mt)),
     dict(vl_number=3, vl_instance=initial, action=initial,
-         w_h_x_y='400x250+' + str(x + 600) + '+' + str(y + 400)),
+         w_h_x_y=dimension + str(2 * ml) + '+' + str(2 * mt)),
     dict(vl_number=4, vl_instance=initial, action=initial,
-         w_h_x_y='400x250+' + str(x + 800) + '+' + str(y + 600))
+         w_h_x_y=dimension + str(3 * ml) + '+' + str(3 * mt))
 ]  # STATE VECTOR TO TAKE TRACK OF CHANGES MADE BY VLC-THREADS
 new_msg = dict(vl=0, action=initial)  # LAST MESSAGE WROTE BY CONSUMER
 
@@ -47,6 +52,7 @@ def create_window(vl_number, root_window, state, new_action):
         {'action': new_action, 'vl_instance': new_vl_instance, 'window': new_window})
 
 
+# DESTROY THE WINDOW AND STOP VLC_INSTANCE PRESENT IN STATE
 def destroy_window(state):
     state['window'].destroy()
     state['vl_instance'].stop()
