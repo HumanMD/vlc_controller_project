@@ -1,10 +1,12 @@
+import os
 import re
+import signal
 import sys
 import threading
 
 
 def regex_check(message):
-    if re.findall("^(start|stop+)(,)([1-4])$", message):
+    if re.findall("^(start|stop|focus+)(,)([1-4])$", message):
         return True
 
 
@@ -22,11 +24,12 @@ class ProducerThread(threading.Thread):
 
             if msg == 'esc':
                 print('closing connection')
+                self.q_msg.put(msg, True)
                 sys.exit()
 
-            if not regex_check(msg):
-                print('illegal input!')
+            elif not regex_check(msg):
+                print('illegal input! \n')
                 continue
 
             self.q_msg.put(msg, True)
-            print(f"producer thread, insert: {msg}... ")
+            print(f"producer thread, insert: {msg} \n")

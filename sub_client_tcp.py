@@ -10,7 +10,7 @@ PORT = 15000
 # AND SEND IT TO THE SUB_SERVER_TCP
 def send_commands(s):
     while True:
-        command = input("<start|stop>,<video-lan-number> -> ")
+        command = input("<start|stop|focus>,<video-lan-number> -> ")
         s.sendall(command.encode())
 
         if command == 'esc':

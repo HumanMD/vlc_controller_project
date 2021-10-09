@@ -1,7 +1,8 @@
 import os
 import queue
-import re
+import signal
 import socket
+import subprocess
 import sys
 import threading
 import time
@@ -53,9 +54,17 @@ def create_window(vl_number, root_window, state, new_action):
 
 
 # DESTROY THE WINDOW AND STOP VLC_INSTANCE PRESENT IN STATE
-def destroy_window(state):
+def destroy_window(state, new_action):
     state['window'].destroy()
     state['vl_instance'].stop()
+
+    state.update(
+        {'action': new_action, 'vl_instance': '', 'window': ''})
+
+
+# MAKE THE SPECIFIED WINDOW ON FOCUS
+def focus_window(vl_number):
+    subprocess.run(['wmctrl', '-a', 'Video Lan ' + str(vl_number)])
 
 
 class ConsumerThread(threading.Thread):
@@ -69,13 +78,18 @@ class ConsumerThread(threading.Thread):
         while True:
             time.sleep(0.5)
             array_msg = self.q_msg.get(True).split(',')
-            new_msg.update({
-                'vl': int(array_msg[1]),
-                'action': array_msg[0]
-            })
-            print(f"consumer thread, consuming: {new_msg}... ")
+            if len(array_msg) > 1:
+                new_msg.update({
+                    'vl': int(array_msg[1]),
+                    'action': array_msg[0]
+                })
+                print(f"consumer thread, consuming: {new_msg} \n")
+            else:
+                root.destroy()
+                os.kill(os.getpid(), signal.SIGINT)
 
 
+# TODO on 'esc' i can close all the windows and close the connection but remain always a pending lock
 class VideoLanThread(threading.Thread):
 
     def __init__(self, name):
@@ -87,8 +101,8 @@ class VideoLanThread(threading.Thread):
         global current_state
         global new_msg
         while True:
-            lock.acquire()
             vl = new_msg['vl']
+            lock.acquire()
 
             if vl != 0:  # action != ''
                 state = current_state[vl - 1]
@@ -96,29 +110,36 @@ class VideoLanThread(threading.Thread):
                 current_action = state['action']
                 current_vl_instance = state['vl_instance']
 
+                # START ACTION
                 if new_action == 'start':
-                    print(f"{self.name}: {new_action} vl {vl}")
+                    print(f"{self.name}: {new_action} vl {vl}\n")
                     os.chdir("/home/human/Video")
 
+                    # PLAY
                     if current_vl_instance == '':
                         create_window(vl, root, state, new_action)
 
+                    # REPLAY
                     else:
-                        destroy_window(state)
+                        destroy_window(state, new_action)
                         time.sleep(0.2)
                         create_window(vl, root, state, new_action)
 
-                elif new_action == 'stop' and \
-                        new_action != current_action and \
-                        current_vl_instance != '':
-                    print(f"{self.name}: {new_action} vl {vl}")
-                    destroy_window(state)
+                # STOP ACTION
+                elif (new_action == 'stop') and (new_action != current_action) and (current_vl_instance != ''):
+                    print(f"{self.name}: {new_action} vl {vl}\n")
+                    destroy_window(state, new_action)
+
+                # FOCUS ACTION
+                elif new_action == 'focus' and \
+                        current_action == 'start':
+                    print(f"{self.name}: {new_action} vl {vl}\n")
+                    focus_window(vl)
 
                 new_msg.update({
                     'vl': 0,
                     'action': ''
                 })
-
             lock.release()
 
 
@@ -137,7 +158,6 @@ def sub_server(address, backlog=1):
     threads = [ProducerThread(q, conn), ConsumerThread(q),
                VideoLanThread('thread_1'), VideoLanThread('thread_2'),
                VideoLanThread('thread_3'), VideoLanThread('thread_4')]
-
     for thread in threads:
         thread.start()
 
