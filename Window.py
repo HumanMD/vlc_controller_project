@@ -18,7 +18,7 @@ class Window(Toplevel):
         self.attributes('-alpha', 0)  # the window has initially opacity 0
         self.vl_instance.set_xwindow(xid)  # define video to display inside the x window with id xid
         self.geometry(self.w_h_x_y)  # define the window dimension and position
-        self.update_idletasks()  # update the pending task and wait half second
+        self.update_idletasks()  # update the pending task and wait
         time.sleep(0.5)
         self.after_idle(lambda: self.attributes('-alpha', 1))  # make the window visible when updated
 

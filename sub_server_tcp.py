@@ -19,24 +19,28 @@ lock = threading.Lock()
 initial = ''
 
 # GET PRIMARY MONITOR DIMENSION AND DEFINE THE WINDOWS DIMENSION AND POSITION BASED ON IT
-monitor = get_monitors()[0]
-root = tk.Tk()
-root.withdraw()  # hide the root so that only the video lan windows will be visible
-w = int(monitor.width / 4)
-h = int(monitor.height / 4)
-ml = int(w - monitor.width / 16)  # base margin left
-mt = int(h - monitor.height / 12)  # base margin top
+monitor = get_monitors()[0]  # get the primary monitor instance
+root = tk.Tk()  # instantiate the root window, where the vl-windows ll be played
+root.withdraw()  # hide the root so that only the vl-windows will be visible
+
+# TODO let the client able to specify the dimension and position for each window
+x_0 = monitor.x
+y_0 = monitor.y
+w = int(monitor.width / 4)  # vl-windows width (a quart of primary monitor width)
+h = int(monitor.height / 4)  # vl-windows height (a quart of primary monitor height)
+ml = int(w - monitor.width / 16)  # base margin left (w - dw)
+mt = int(h - monitor.height / 12)  # base margin top (h - dh)
 dimension = str(w) + 'x' + str(h) + '+'
 
 current_state = [
     dict(vl_number=1, vl_instance=initial, action=initial,
-         w_h_x_y=dimension + str(monitor.x) + '+' + str(monitor.y)),
+         w_h_x_y=dimension + str(x_0) + '+' + str(y_0)),
     dict(vl_number=2, vl_instance=initial, action=initial,
-         w_h_x_y=dimension + str(ml) + '+' + str(mt)),
+         w_h_x_y=dimension + str(x_0 + ml) + '+' + str(y_0 + mt)),
     dict(vl_number=3, vl_instance=initial, action=initial,
-         w_h_x_y=dimension + str(2 * ml) + '+' + str(2 * mt)),
+         w_h_x_y=dimension + str(x_0 + 2 * ml) + '+' + str(y_0 + 2 * mt)),
     dict(vl_number=4, vl_instance=initial, action=initial,
-         w_h_x_y=dimension + str(3 * ml) + '+' + str(3 * mt))
+         w_h_x_y=dimension + str(x_0 + 3 * ml) + '+' + str(y_0 + 3 * mt))
 ]  # STATE VECTOR TO TAKE TRACK OF CHANGES MADE BY VLC-THREADS
 new_msg = dict(vl=0, action=initial)  # LAST MESSAGE WROTE BY CONSUMER
 
@@ -76,7 +80,7 @@ class ConsumerThread(threading.Thread):
         global new_msg
 
         while True:
-            time.sleep(0.5)
+            # time.sleep(0.1)
             array_msg = self.q_msg.get(True).split(',')
             if len(array_msg) > 1:
                 new_msg.update({
@@ -122,7 +126,7 @@ class VideoLanThread(threading.Thread):
                     # REPLAY
                     else:
                         destroy_window(state, new_action)
-                        time.sleep(0.2)
+                        time.sleep(0.1)
                         create_window(vl, root, state, new_action)
 
                 # STOP ACTION
